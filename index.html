@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Discord Webhook Tool</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: sans-serif;
+      background-color: #f4f4f4;
+      padding: 20px;
+      margin: 0;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    h1, h2 {
+      font-size: 22px;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    textarea, input {
+      width: 100%;
+      font-size: 16px;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+
+    button {
+      width: 100%;
+      padding: 15px;
+      font-size: 16px;
+      background-color: #5865F2;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 5px;
+    }
+
+    button:hover {
+      background-color: #4752c4;
+    }
+
+    .status {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>📢 Discord Webhook Poster</h1>
+    <textarea id="message" placeholder="Enter your message..."></textarea>
+    <input type="text" id="name" placeholder="Optional: Custom username">
+    <input type="text" id="avatar" placeholder="Optional: Custom avatar URL">
+    <button onclick="sendMessage()">Send to Discord</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="container">
+    <h2>💣 Message Spammer</h2>
+    <input type="text" id="spamMessage" placeholder="Message to spam (e.g., Hi)">
+    <input type="number" id="spamCount" placeholder="How many times?" min="1" value="10">
+    <input type="number" id="spamDelay" placeholder="Delay between messages (ms)" min="0" value="400">
+    <input type="text" id="spamName" placeholder="Optional: Username">
+    <input type="text" id="spamAvatar" placeholder="Optional: Avatar URL">
+    <button onclick="spamMessages()">Start Spamming</button>
+    <button onclick="cancelSpam()" style="background-color:#ff5555;">Cancel Spam</button>
+    <div class="status" id="spamStatus"></div>
+  </div>
+
+  <script>
+    const webhookUrl = "https://discord.com/api/webhooks/1399634866907123792/zelv7jGurSyGmqJ8dZkrILr8WPr4rhMf53u0eYHnGEyqM_yIOuvRGKkqmU1wjn0ybUwv";
+    const defaultAvatar = "https://cdn.discordapp.com/attachments/1382457094346772523/1399636651700916334/IMG_0411.webp?ex=6889b8b5&is=68886735&hm=1a25f75a98df8ef4993c90ecdc340cd840cac98d0927c87de5ac7178edbe2149&";
+    let spamInterval = null;
+
+    function sendMessage() {
+      const message = document.getElementById("message").value.trim();
+      const name = document.getElementById("name").value.trim() || "Announcer";
+      const avatar = document.getElementById("avatar").value.trim() || defaultAvatar;
+      const statusEl = document.getElementById("status");
+
+      if (!message) {
+        statusEl.textContent = "⚠️ Please enter a message.";
+        return;
+      }
+
+      fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          content: message,
+          username: name,
+          avatar_url: avatar
+        })
+      })
+      .then(res => {
+        if (res.ok) {
+          statusEl.textContent = "✅ Message sent!";
+          document.getElementById("message").value = "";
+        } else {
+          statusEl.textContent = "❌ Failed to send message.";
+        }
+      })
+      .catch(() => {
+        statusEl.textContent = "❌ Error sending request.";
+      });
+    }
+
+    function spamMessages() {
+      const msg = document.getElementById("spamMessage").value.trim();
+      const count = parseInt(document.getElementById("spamCount").value);
+      const delay = parseInt(document.getElementById("spamDelay").value);
+      const name = document.getElementById("spamName").value.trim() || "Announcer";
+      const avatar = document.getElementById("spamAvatar").value.trim() || defaultAvatar;
+      const spamStatus = document.getElementById("spamStatus");
+
+      if (!msg || isNaN(count) || isNaN(delay) || count < 1 || delay < 0) {
+        spamStatus.textContent = "⚠️ Enter a message, valid count, and delay.";
+        return;
+      }
+
+      spamStatus.textContent = `⏳ Sending ${count} messages...`;
+      let sent = 0;
+
+      spamInterval = setInterval(() => {
+        if (sent >= count) {
+          clearInterval(spamInterval);
+          spamStatus.textContent = `✅ Sent ${count} messages!`;
+          return;
+        }
+
+        fetch(webhookUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            content: msg,
+            username: name,
+            avatar_url: avatar
+          })
+        });
+
+        sent++;
+      }, delay);
+    }
+
+    function cancelSpam() {
+      if (spamInterval) {
+        clearInterval(spamInterval);
+        document.getElementById("spamStatus").textContent = "⛔ Spam cancelled.";
+        spamInterval = null;
+      }
+    }
+  </script>
+
+</body>
+</html>
