@@ -65,6 +65,7 @@
 
   <div class="container">
     <h1>📢 Discord Webhook Poster</h1>
+    <input type="text" id="webhookUrl" placeholder="Webhook URL (required)">
     <textarea id="message" placeholder="Enter your message..."></textarea>
     <input type="text" id="name" placeholder="Optional: Custom username">
     <input type="text" id="avatar" placeholder="Optional: Custom avatar URL">
@@ -74,6 +75,7 @@
 
   <div class="container">
     <h2>💣 Message Spammer</h2>
+    <input type="text" id="spamWebhookUrl" placeholder="Webhook URL (required)">
     <input type="text" id="spamMessage" placeholder="Message to spam (e.g., Hi)">
     <input type="number" id="spamCount" placeholder="How many times?" min="1" value="10">
     <input type="number" id="spamDelay" placeholder="Delay between messages (ms)" min="0" value="400">
@@ -85,22 +87,27 @@
   </div>
 
   <script>
-    const webhookUrl = "https://discord.com/api/webhooks/1399641954454867989/P7pCDgcOvcM_zPmRYqRFqAsDGg2IL449hT_ZJ3NnFRrrWIAFW_G5X-kmJQwLvj1xISL6";
     const defaultAvatar = "https://cdn.discordapp.com/attachments/1382457094346772523/1399636651700916334/IMG_0411.webp?ex=6889b8b5&is=68886735&hm=1a25f75a98df8ef4993c90ecdc340cd840cac98d0927c87de5ac7178edbe2149&";
     let spamInterval = null;
 
     function sendMessage() {
+      const webhook = document.getElementById("webhookUrl").value.trim();
       const message = document.getElementById("message").value.trim();
       const name = document.getElementById("name").value.trim() || "Announcer";
       const avatar = document.getElementById("avatar").value.trim() || defaultAvatar;
       const statusEl = document.getElementById("status");
+
+      if (!webhook) {
+        statusEl.textContent = "⚠️ Please enter a webhook URL.";
+        return;
+      }
 
       if (!message) {
         statusEl.textContent = "⚠️ Please enter a message.";
         return;
       }
 
-      fetch(webhookUrl, {
+      fetch(webhook, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -125,12 +132,18 @@
     }
 
     function spamMessages() {
+      const webhook = document.getElementById("spamWebhookUrl").value.trim();
       const msg = document.getElementById("spamMessage").value.trim();
       const count = parseInt(document.getElementById("spamCount").value);
       const delay = parseInt(document.getElementById("spamDelay").value);
       const name = document.getElementById("spamName").value.trim() || "Announcer";
       const avatar = document.getElementById("spamAvatar").value.trim() || defaultAvatar;
       const spamStatus = document.getElementById("spamStatus");
+
+      if (!webhook) {
+        spamStatus.textContent = "⚠️ Please enter a webhook URL.";
+        return;
+      }
 
       if (!msg || isNaN(count) || isNaN(delay) || count < 1 || delay < 0) {
         spamStatus.textContent = "⚠️ Enter a message, valid count, and delay.";
@@ -147,7 +160,7 @@
           return;
         }
 
-        fetch(webhookUrl, {
+        fetch(webhook, {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
