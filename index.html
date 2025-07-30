@@ -59,6 +59,18 @@
       text-align: center;
       font-size: 14px;
     }
+
+    /* Styles for Embeds */
+    .embed-section {
+      border-top: 1px solid #eee;
+      padding-top: 15px;
+      margin-top: 15px;
+    }
+
+    .embed-section h3 {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
@@ -66,10 +78,22 @@
   <div class="container">
     <h1>📢 Discord Webhook Poster</h1>
     <input type="text" id="webhookUrl" placeholder="Webhook URL (required)">
-    <textarea id="message" placeholder="Enter your message..."></textarea>
+    <textarea id="message" placeholder="Enter your message... (Leave empty for embeds only)"></textarea>
     <input type="text" id="name" placeholder="Optional: Custom username">
     <input type="text" id="avatar" placeholder="Optional: Custom avatar URL">
+
+    <div class="embed-section">
+      <h3>Embeds (Optional)</h3>
+      <input type="text" id="embedTitle" placeholder="Embed Title">
+      <textarea id="embedDescription" placeholder="Embed Description"></textarea>
+      <input type="text" id="embedColor" placeholder="Embed Color (e.g., #00ff00 or 0x00ff00)">
+      <input type="text" id="embedFooter" placeholder="Embed Footer Text">
+      <input type="text" id="embedThumbnail" placeholder="Embed Thumbnail URL">
+      <input type="text" id="embedImage" placeholder="Embed Image URL">
+    </div>
+
     <button onclick="sendMessage()">Send to Discord</button>
+    <button onclick="saveSettings('main')" style="background-color: #4CAF50;">Save Settings</button>
     <div class="status" id="status"></div>
   </div>
 
@@ -83,12 +107,16 @@
     <input type="text" id="spamAvatar" placeholder="Optional: Avatar URL">
     <button onclick="spamMessages()">Start Spamming</button>
     <button onclick="cancelSpam()" style="background-color:#ff5555;">Cancel Spam</button>
+    <button onclick="saveSettings('spam')" style="background-color: #4CAF50;">Save Settings</button>
     <div class="status" id="spamStatus"></div>
   </div>
 
   <script>
     const defaultAvatar = "https://cdn.discordapp.com/attachments/1382457094346772523/1399636651700916334/IMG_0411.webp?ex=6889b8b5&is=68886735&hm=1a25f75a98df8ef4993c90ecdc340cd840cac98d0927c87de5ac7178edbe2149&";
     let spamInterval = null;
+
+    // Load settings on page load
+    document.addEventListener('DOMContentLoaded', loadSettings);
 
     function sendMessage() {
       const webhook = document.getElementById("webhookUrl").value.trim();
@@ -97,14 +125,54 @@
       const avatar = document.getElementById("avatar").value.trim() || defaultAvatar;
       const statusEl = document.getElementById("status");
 
+      // Embed fields
+      const embedTitle = document.getElementById("embedTitle").value.trim();
+      const embedDescription = document.getElementById("embedDescription").value.trim();
+      const embedColor = document.getElementById("embedColor").value.trim();
+      const embedFooter = document.getElementById("embedFooter").value.trim();
+      const embedThumbnail = document.getElementById("embedThumbnail").value.trim();
+      const embedImage = document.getElementById("embedImage").value.trim();
+
       if (!webhook) {
         statusEl.textContent = "⚠️ Please enter a webhook URL.";
         return;
       }
 
-      if (!message) {
-        statusEl.textContent = "⚠️ Please enter a message.";
+      if (!message && !embedTitle && !embedDescription) {
+        statusEl.textContent = "⚠️ Please enter a message or at least an embed title/description.";
         return;
+      }
+
+      const payload = {
+        username: name,
+        avatar_url: avatar
+      };
+
+      if (message) {
+        payload.content = message;
+      }
+
+      // Construct embed object if any embed fields are filled
+      if (embedTitle || embedDescription || embedColor || embedFooter || embedThumbnail || embedImage) {
+        const embed = {};
+        if (embedTitle) embed.title = embedTitle;
+        if (embedDescription) embed.description = embedDescription;
+
+        if (embedColor) {
+          // Convert hex string to integer for Discord color
+          const colorValue = embedColor.startsWith('#') ? parseInt(embedColor.substring(1), 16) :
+                             embedColor.startsWith('0x') ? parseInt(embedColor, 16) :
+                             parseInt(embedColor, 10); // Try parsing as decimal if no prefix
+          if (!isNaN(colorValue)) {
+            embed.color = colorValue;
+          }
+        }
+
+        if (embedFooter) embed.footer = { text: embedFooter };
+        if (embedThumbnail) embed.thumbnail = { url: embedThumbnail };
+        if (embedImage) embed.image = { url: embedImage };
+
+        payload.embeds = [embed];
       }
 
       fetch(webhook, {
@@ -112,22 +180,25 @@
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          content: message,
-          username: name,
-          avatar_url: avatar
-        })
+        body: JSON.stringify(payload)
       })
       .then(res => {
         if (res.ok) {
           statusEl.textContent = "✅ Message sent!";
-          document.getElementById("message").value = "";
+          // Optionally clear fields after sending
+          // document.getElementById("message").value = "";
+          // document.getElementById("embedTitle").value = "";
+          // document.getElementById("embedDescription").value = "";
+          // document.getElementById("embedColor").value = "";
+          // document.getElementById("embedFooter").value = "";
+          // document.getElementById("embedThumbnail").value = "";
+          // document.getElementById("embedImage").value = "";
         } else {
-          statusEl.textContent = "❌ Failed to send message.";
+          statusEl.textContent = `❌ Failed to send message: ${res.status} ${res.statusText}`;
         }
       })
-      .catch(() => {
-        statusEl.textContent = "❌ Error sending request.";
+      .catch((error) => {
+        statusEl.textContent = `❌ Error sending request: ${error.message}`;
       });
     }
 
@@ -170,6 +241,9 @@
             username: name,
             avatar_url: avatar
           })
+        }).catch((error) => {
+          console.error("Error sending spam message:", error);
+          // Optionally update status with error, but avoid spamming status messages
         });
 
         sent++;
@@ -181,6 +255,68 @@
         clearInterval(spamInterval);
         document.getElementById("spamStatus").textContent = "⛔ Spam cancelled.";
         spamInterval = null;
+      }
+    }
+
+    // --- Local Storage Functions ---
+
+    function saveSettings(type) {
+      if (type === 'main') {
+        const settings = {
+          webhookUrl: document.getElementById("webhookUrl").value.trim(),
+          message: document.getElementById("message").value.trim(),
+          name: document.getElementById("name").value.trim(),
+          avatar: document.getElementById("avatar").value.trim(),
+          embedTitle: document.getElementById("embedTitle").value.trim(),
+          embedDescription: document.getElementById("embedDescription").value.trim(),
+          embedColor: document.getElementById("embedColor").value.trim(),
+          embedFooter: document.getElementById("embedFooter").value.trim(),
+          embedThumbnail: document.getElementById("embedThumbnail").value.trim(),
+          embedImage: document.getElementById("embedImage").value.trim()
+        };
+        localStorage.setItem('discordWebhookSettings', JSON.stringify(settings));
+        document.getElementById("status").textContent = "✅ Main settings saved!";
+      } else if (type === 'spam') {
+        const settings = {
+          spamWebhookUrl: document.getElementById("spamWebhookUrl").value.trim(),
+          spamMessage: document.getElementById("spamMessage").value.trim(),
+          spamCount: document.getElementById("spamCount").value,
+          spamDelay: document.getElementById("spamDelay").value,
+          spamName: document.getElementById("spamName").value.trim(),
+          spamAvatar: document.getElementById("spamAvatar").value.trim()
+        };
+        localStorage.setItem('discordSpamSettings', JSON.stringify(settings));
+        document.getElementById("spamStatus").textContent = "✅ Spam settings saved!";
+      }
+    }
+
+    function loadSettings() {
+      // Load main settings
+      const mainSettings = localStorage.getItem('discordWebhookSettings');
+      if (mainSettings) {
+        const settings = JSON.parse(mainSettings);
+        document.getElementById("webhookUrl").value = settings.webhookUrl || '';
+        document.getElementById("message").value = settings.message || '';
+        document.getElementById("name").value = settings.name || '';
+        document.getElementById("avatar").value = settings.avatar || '';
+        document.getElementById("embedTitle").value = settings.embedTitle || '';
+        document.getElementById("embedDescription").value = settings.embedDescription || '';
+        document.getElementById("embedColor").value = settings.embedColor || '';
+        document.getElementById("embedFooter").value = settings.embedFooter || '';
+        document.getElementById("embedThumbnail").value = settings.embedThumbnail || '';
+        document.getElementById("embedImage").value = settings.embedImage || '';
+      }
+
+      // Load spam settings
+      const spamSettings = localStorage.getItem('discordSpamSettings');
+      if (spamSettings) {
+        const settings = JSON.parse(spamSettings);
+        document.getElementById("spamWebhookUrl").value = settings.spamWebhookUrl || '';
+        document.getElementById("spamMessage").value = settings.spamMessage || '';
+        document.getElementById("spamCount").value = settings.spamCount || '10';
+        document.getElementById("spamDelay").value = settings.spamDelay || '400';
+        document.getElementById("spamName").value = settings.spamName || '';
+        document.getElementById("spamAvatar").value = settings.spamAvatar || '';
       }
     }
   </script>
